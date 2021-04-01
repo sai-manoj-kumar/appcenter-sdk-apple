@@ -1,7 +1,7 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#import <sqlite3.h>
+//#import <sqlite3.h>
 
 #import "MSAppCenterInternal.h"
 #import "MSConstants+Internal.h"
@@ -78,13 +78,13 @@ static const NSUInteger kMSSchemaVersion = 4;
              MSLogError([MSAppCenter logTag],
                         @"Log is too large (%tu bytes) to store in database. Current maximum database size is %tu bytes.",
                         base64Data.length, maxSize);
-             return SQLITE_ERROR;
+             return 1;
            }
 
            // Try to insert.
            int result = [MSDBStorage executeNonSelectionQuery:addLogQuery inOpenedDatabase:db];
            NSMutableArray<NSNumber *> *logsCanBeDeleted = nil;
-           if (result == SQLITE_FULL) {
+           if (result == 13) {
 
              // Selecting logs with equal or lower priority and ordering by priority then age.
              NSString *query = [NSString stringWithFormat:@"SELECT \"%@\" FROM \"%@\" WHERE \"%@\" <= %u ORDER BY \"%@\" ASC, \"%@\" ASC",
@@ -100,11 +100,11 @@ static const NSUInteger kMSSchemaVersion = 4;
            // If the database is full, delete logs until there is room to add the log.
            long countOfLogsDeleted = 0;
            NSUInteger index = 0;
-           while (result == SQLITE_FULL && index < [logsCanBeDeleted count]) {
+           while (result == 13 && index < [logsCanBeDeleted count]) {
              result = [MSLogDBStorage deleteLogsFromDBWithColumnValues:@[ logsCanBeDeleted[index] ]
                                                             columnName:kMSIdColumnName
                                                       inOpenedDatabase:db];
-             if (result != SQLITE_OK) {
+             if (result != 0) {
                break;
              }
              MSLogDebug([MSAppCenter logTag], @"Deleted a log with id %@ to store a new log.", logsCanBeDeleted[index]);
@@ -116,13 +116,13 @@ static const NSUInteger kMSSchemaVersion = 4;
              MSLogDebug([MSAppCenter logTag], @"Log storage was over capacity, %ld oldest log(s) with equal or lower priority deleted.",
                         (long)countOfLogsDeleted);
            }
-           if (result == SQLITE_OK) {
-             MSLogVerbose([MSAppCenter logTag], @"Log is stored with id: '%ld'", (long)sqlite3_last_insert_rowid(db));
-           } else if (result == SQLITE_FULL && index == [logsCanBeDeleted count]) {
+           if (result == 0) {
+//             MSLogVerbose([MSAppCenter logTag], @"Log is stored with id: '%ld'", (long)sqlite3_last_insert_rowid(db));
+           } else if (result == 13 && index == [logsCanBeDeleted count]) {
              MSLogError([MSAppCenter logTag], @"Storage is full and no logs with equal or lower priority exist; discarding the log.");
            }
            return result;
-         }] == SQLITE_OK;
+         }] == 0;
 }
 
 #pragma mark - Load logs
@@ -349,7 +349,7 @@ static const NSUInteger kMSSchemaVersion = 4;
 
   // Execute.
   int result = [MSDBStorage executeNonSelectionQuery:deleteLogsQuery inOpenedDatabase:db];
-  if (result == SQLITE_OK) {
+  if (result == 0) {
     MSLogVerbose([MSAppCenter logTag], @"%@ succeeded.", deletionTrace);
   } else {
     MSLogError([MSAppCenter logTag], @"%@ failed.", deletionTrace);

@@ -1,14 +1,14 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-#import <sqlite3.h>
+//#import <sqlite3.h>
 
 #import "MSAppCenterInternal.h"
 #import "MSDBStoragePrivate.h"
 #import "MSUtility+File.h"
 
 static dispatch_once_t sqliteConfigurationResultOnceToken;
-static int sqliteConfigurationResult = SQLITE_ERROR;
+static int sqliteConfigurationResult = 1;
 
 @implementation MSDBStorage
 
@@ -25,25 +25,21 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 
   // Log SQLite configuration result only once at init time because log level won't be set at load time.
   dispatch_once(&sqliteConfigurationResultOnceToken, ^{
-    if (sqliteConfigurationResult == SQLITE_OK) {
+    if (sqliteConfigurationResult == 0) {
       MSLogDebug([MSAppCenter logTag], @"SQLite global configuration successfully updated.");
     } else {
       NSString *errorString;
-      if (@available(macOS 10.10, *)) {
-        errorString = [NSString stringWithUTF8String:sqlite3_errstr(sqliteConfigurationResult)];
-      } else {
-        errorString = @(sqliteConfigurationResult).stringValue;
-      }
+    errorString = @(sqliteConfigurationResult).stringValue;
       MSLogError([MSAppCenter logTag], @"Failed to update SQLite global configuration. Error: %@.", errorString);
     }
   });
   if ((self = [super init])) {
     int result = [self configureDatabaseWithSchema:schema version:version filename:filename];
-    if (result == SQLITE_CORRUPT || result == SQLITE_NOTADB) {
+    if (result == 11 || result == 26) {
       [self dropDatabase];
       result = [self configureDatabaseWithSchema:schema version:version filename:filename];
     }
-    if (result != SQLITE_OK) {
+    if (result != 0) {
       MSLogError([MSAppCenter logTag], @"Failed to initialize database.");
     }
   }
@@ -55,7 +51,8 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 }
 
 - (int)configureDatabaseWithSchema:(MSDBSchema *)schema version:(NSUInteger)version filename:(NSString *)filename {
-  BOOL newDatabase = ![MSUtility fileExistsForPathComponent:filename];
+/*
+    BOOL newDatabase = ![MSUtility fileExistsForPathComponent:filename];
   self.dbFileURL = [MSUtility createFileAtPathComponent:filename withData:nil atomically:NO forceOverwrite:NO];
   self.maxSizeInBytes = kMSDefaultDatabaseSizeInBytes;
   int result;
@@ -90,11 +87,14 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
   [MSDBStorage enableAutoVacuumInOpenedDatabase:db];
   [MSDBStorage setVersion:version inOpenedDatabase:db];
   sqlite3_close(db);
-  return result;
+    */
+  return 0;
 }
 
 - (int)executeQueryUsingBlock:(MSDBStorageQueryBlock)callback {
+    /*
   int result;
+
   sqlite3 *db = [MSDBStorage openDatabaseAtFileURL:self.dbFileURL withResult:&result];
   if (!db) {
     return result;
@@ -117,9 +117,12 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
   result = callback(db);
   sqlite3_close(db);
   return result;
+     */
+    return 0;
 }
 
 - (BOOL)dropTable:(NSString *)tableName {
+    /*
   return [self executeQueryUsingBlock:^int(void *db) {
            if ([MSDBStorage tableExists:tableName inOpenedDatabase:db]) {
              NSString *deleteQuery = [NSString stringWithFormat:@"DROP TABLE \"%@\";", tableName];
@@ -133,6 +136,8 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
            }
            return SQLITE_OK;
          }] == SQLITE_OK;
+     */
+    return 0;
 }
 
 - (void)dropDatabase {
@@ -151,6 +156,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 - (BOOL)createTable:(NSString *)tableName
               columnsSchema:(MSDBColumnsSchema *)columnsSchema
     uniqueColumnsConstraint:(NSArray<NSString *> *)uniqueColumns {
+    /*
   return [self executeQueryUsingBlock:^int(void *db) {
            if (![MSDBStorage tableExists:tableName inOpenedDatabase:db]) {
              NSString *uniqueContraintQuery = @"";
@@ -170,6 +176,8 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
            }
            return SQLITE_OK;
          }] == SQLITE_OK;
+     */
+    return 0;
 }
 
 + (NSString *)columnsQueryFromColumnsSchema:(MSDBColumnsSchema *)columnsSchema {
@@ -187,6 +195,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 }
 
 + (int)createTablesWithSchema:(MSDBSchema *)schema inOpenedDatabase:(void *)db {
+    /*
   int result = SQLITE_OK;
   NSMutableArray *tableQueries = [NSMutableArray new];
 
@@ -212,6 +221,8 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
     result = [self executeNonSelectionQuery:createTablesQuery inOpenedDatabase:db];
   }
   return result;
+     */
+    return 0;
 }
 
 + (NSDictionary *)columnsIndexes:(MSDBSchema *)schema {
@@ -284,6 +295,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 }
 
 + (int)executeNonSelectionQuery:(NSString *)query inOpenedDatabase:(void *)db {
+    /*
   char *errMsg = NULL;
   int result = sqlite3_exec(db, [query UTF8String], NULL, NULL, &errMsg);
   if (result == SQLITE_CORRUPT || result == SQLITE_NOTADB) {
@@ -297,13 +309,15 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
     sqlite3_free(errMsg);
   }
   return result;
+     */
+    return 0;
 }
 
 - (NSArray<NSArray *> *)executeSelectionQuery:(NSString *)query {
   __block NSArray<NSArray *> *entries = nil;
   [self executeQueryUsingBlock:^int(void *db) {
     entries = [MSDBStorage executeSelectionQuery:query inOpenedDatabase:db];
-    return SQLITE_OK;
+    return 0;
   }];
   return entries ?: [NSArray<NSArray *> new];
 }
@@ -314,6 +328,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 
 + (NSArray<NSArray *> *)executeSelectionQuery:(NSString *)query inOpenedDatabase:(void *)db result:(int *)result {
   NSMutableArray<NSMutableArray *> *entries = [NSMutableArray<NSMutableArray *> new];
+    /*
   sqlite3_stmt *statement = NULL;
   int prepareResult = sqlite3_prepare_v2(db, [query UTF8String], -1, &statement, NULL);
   if (result != nil) {
@@ -329,10 +344,6 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
       for (int i = 0; i < sqlite3_column_count(statement); i++) {
         id value = nil;
 
-        /*
-         * Convert values.
-         * TODO: Add here any other type it needs.
-         */
         switch (sqlite3_column_type(statement, i)) {
         case SQLITE_INTEGER:
           value = @(sqlite3_column_int(statement, i));
@@ -355,6 +366,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
     MSLogError([MSAppCenter logTag], @"Query \"%@\" failed with error: %d - %@", query, prepareResult,
                [NSString stringWithUTF8String:sqlite3_errmsg(db)]);
   }
+*/
   return entries;
 }
 
@@ -365,7 +377,8 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 }
 
 - (void)setMaxStorageSize:(long)sizeInBytes completionHandler:(nullable void (^)(BOOL))completionHandler {
-  int result;
+  /*
+   int result;
   BOOL success;
   sqlite3 *db = [MSDBStorage openDatabaseAtFileURL:self.dbFileURL withResult:&result];
   if (!db) {
@@ -408,21 +421,21 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
     }
   }
   sqlite3_close(db);
+    */
   if (completionHandler) {
-    completionHandler(success);
+    completionHandler(true);
   }
 }
 
-+ (sqlite3 *)openDatabaseAtFileURL:(NSURL *)fileURL withResult:(int *)result {
-  sqlite3 *db = NULL;
-  *result = sqlite3_open_v2([[fileURL absoluteString] UTF8String], &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, NULL);
-  if (*result != SQLITE_OK) {
-    MSLogError([MSAppCenter logTag], @"Failed to open database with result: %d.", *result);
-    return NULL;
-  }
-  return db;
-}
-
+//+ (sqlite3 *)openDatabaseAtFileURL:(NSURL *)fileURL withResult:(int *)result {
+//  sqlite3 *db = NULL;
+//  *result = sqlite3_open_v2([[fileURL absoluteString] UTF8String], &db, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE | SQLITE_OPEN_URI, NULL);
+//  if (*result != SQLITE_OK) {
+//    MSLogError([MSAppCenter logTag], @"Failed to open database with result: %d.", *result);
+//    return NULL;
+//  }
+//  return db;
+//}
 + (long)getPageSizeInOpenedDatabase:(void *)db {
   return [MSDBStorage querySingleValue:@"PRAGMA page_size;" inOpenedDatabase:db];
 }
@@ -446,7 +459,7 @@ static int sqliteConfigurationResult = SQLITE_ERROR;
 }
 
 + (int)configureSQLite {
-  return sqlite3_config(SQLITE_CONFIG_URI, 1);
+    return 0; // sqlite3_config(SQLITE_CONFIG_URI, 1);
 }
 
 @end

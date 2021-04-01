@@ -55,7 +55,7 @@ Pod::Spec.new do |s|
     ss.ios.vendored_frameworks = "AppCenter-SDK-Apple/iOS/AppCenter.framework"
     ss.osx.vendored_frameworks = "AppCenter-SDK-Apple/macOS/AppCenter.framework"
     ss.tvos.vendored_frameworks = "AppCenter-SDK-Apple/tvOS/AppCenter.framework"
-    ss.libraries = 'z', 'sqlite3'
+    ss.libraries = 'z'
   end
 
  s.subspec 'Analytics' do |ss|
